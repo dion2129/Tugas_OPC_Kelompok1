@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TravelGo — Pemesanan Tiket dengan OCR</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="app-header">
+  <div class="logo" onclick="masukModeUji()">✈️</div>
+  <div>
+    <h1 onclick="resetApp()">TravelGo</h1>
+    <small>Pemesanan Tiket Travel Online + Verifikasi OCR</small>
+  </div>
+</div>
+
+<!-- STEPPER -->
+<div class="stepper" id="stepper">
+  <div class="step-item active" id="st0">
+    <div class="step-circle">1</div>
+    <div class="step-label">Pesan</div>
+  </div>
+  <div class="step-item" id="st1">
+    <div class="step-circle">2</div>
+    <div class="step-label">Kursi</div>
+  </div>
+  <div class="step-item" id="st2">
+    <div class="step-circle">3</div>
+    <div class="step-label">Bayar</div>
+  </div>
+  <div class="step-item" id="st3">
+    <div class="step-circle">4</div>
+    <div class="step-label">OCR</div>
+  </div>
+  <div class="step-item" id="st4">
+    <div class="step-circle">5</div>
+    <div class="step-label">Tiket</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ============================================================
+       PAGE 0 — DATA PEMESANAN
+  ============================================================ -->
+  <div class="page active" id="page0">
+    <div class="card">
+      <div class="card-title">📍 Rute Perjalanan</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Kota Asal</label>
+          <select id="kotaAsal" onchange="updateHarga()">
+            <option>Banjarmasin</option>
+            <option>Surabaya</option>
+            <option>Jakarta</option>
+            <option>Semarang</option>
+            <option>Yogyakarta</option>
+            <option>Bali</option>
+            <option>Palangkaraya</option>
+            <option>Banjarbaru</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Kota Tujuan</label>
+          <select id="kotaTujuan" onchange="updateHarga()">
+            <option>Surabaya</option>
+            <option>Banjarmasin</option>
+            <option>Jakarta</option>
+            <option>Semarang</option>
+            <option>Yogyakarta</option>
+            <option>Bali</option>
+            <option>Palangkaraya</option>
+            <option>Banjarbaru</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tanggal Berangkat</label>
+          <input type="date" id="tanggal" value="2026-04-20">
+        </div>
+        <div class="form-group">
+          <label>Jumlah Penumpang</label>
+          <input type="number" id="jumlahPax" value="1" min="1" max="20">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Kelas Kursi</label>
+        <select id="kelasTiket" onchange="renderSummary()">
+          <option value="36593" data-name="Ekonomi">Ekonomi — Rp 36.593 / orang</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👤 Data Penumpang Utama</div>
+      <div class="form-group">
+        <label>Nama Lengkap (sesuai KTP)</label>
+        <input type="text" id="namaLengkap" placeholder="Contoh: John Cena" value="John Cena">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>No. HP / WhatsApp</label>
+          <input type="text" id="noHp" placeholder="08xx" value="081234567890">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="email" placeholder="email@..." value="ahmad@email.com">
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="validateAndGoToSeat()">
+      Pilih Kursi &rarr;
+    </button>
+  </div>
+
+  <!-- ============================================================
+       PAGE 1 — PILIH KURSI
+  ============================================================ -->
+  <div class="page" id="page1">
+    <div class="card">
+      <div class="card-title">💺 Pilih Kursi</div>
+      <div class="seat-legend">
+        <div class="legend-item"><div class="legend-box" style="background:#f9fafb"></div>Tersedia</div>
+        <div class="legend-item"><div class="legend-box" style="background:#e2e8f0;border-color:#cbd5e1"></div>Terisi</div>
+        <div class="legend-item"><div class="legend-box" style="background:var(--blue);border-color:var(--blue)"></div>Dipilih</div>
+      </div>
+      
+      <div class="bus-container">
+        <div class="bus-front-row">
+          <div class="bus-door">🚪 Pintu Masuk</div>
+          <div class="bus-driver">👨‍🦰 Supir</div>
+        </div>
+        <div class="seat-grid" id="seatGrid"></div>
+      </div>
+
+      <div class="seat-info" id="seatInfo">Klik kursi yang diinginkan</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💰 Ringkasan Harga</div>
+      <table class="summary-table">
+        <tr><td class="td-label">Rute</td><td class="td-val" id="sumRute">—</td></tr>
+        <tr><td class="td-label">Kelas</td><td class="td-val" id="sumKelas">—</td></tr>
+        <tr><td class="td-label">Harga per kursi</td><td class="td-val" id="sumHarga">—</td></tr>
+        <tr><td class="td-label">Jumlah penumpang</td><td class="td-val" id="sumPax">—</td></tr>
+        <tr class="total-row">
+          <td class="td-label">Total Bayar</td>
+          <td class="td-val" id="sumTotal">—</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" onclick="gotoStep(0)">&larr; Kembali</button>
+      <button class="btn btn-primary" id="btnKeSeat" disabled onclick="gotoStep(2)">
+        Lanjut Bayar &rarr;
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       PAGE 2 — UPLOAD BUKTI BAYAR + OCR
+  ============================================================ -->
+<div class="page" id="page2">
+  <div class="card">
+    <div class="card-title">Metode Pembayaran</div>
+    <div class="form-group">
+      <select id="metodeBayar" onchange="gantiMetodeBayar()">
+        <option value="qris">Transfer Digital QRIS</option>
+        <option value="loket">Bayar Langsung di Loket</option>
+      </select>
+    </div>
+  </div>
+  <div id="qrisSection">
+  <div class="card" style="text-align: center;">
+    <div class="card-title">Scan QRIS Pembayaran</div>
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=TravelGo-Dummy-Payment" 
+         alt="QRIS Dummy" 
+         style="width: 200px; margin: 10px auto; display: block; border: 5px solid #fff; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+    <p style="font-size: 12px; color: var(--text-muted);">Scan kode di atas menggunakan aplikasi Bank atau E-Wallet Anda</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Upload Bukti Pembayaran</div>
+    <div class="alert alert-info">
+      <span class="alert-icon">ℹ️</span>
+      <div class="alert-content">
+        <strong>Total Tagihan: <span id="payTotal" style="color:var(--blue)">—</span></strong>
+        Unggah bukti transfer setelah Anda melakukan scan QRIS di atas.
+      </div>
+    </div>
+    <div class="upload-zone" id="uploadZone"
+         ondragover="event.preventDefault(); this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="handleDrop(event)">
+      <input type="file" id="fileInput" accept="image/*" multiple onchange="handleFileChange(event)">
+      <div class="upload-icon">📤</div>
+      <h3>Klik atau seret file ke sini</h3>
+      <p>Format JPG, PNG, WEBP — Maks. 5 MB</p>
+    </div>
+  </div>
+</div>
+  <!-- <div id="qrisSection">
+    <div class="card">
+      <div class="card-title">Upload Bukti Pembayaran</div>
+      <div class="alert alert-info">
+        <span class="alert-icon">ℹ️</span>
+        <div class="alert-content">
+          <strong>Total Tagihan <span id="payTotal" style="color:#0077cc"></span></strong>
+          Unggah bukti transfer dari MBanking atau EWallet Anda
+        </div>
+      </div>
+      <div class="upload-zone" id="uploadZone"
+           ondragover="event.preventDefault()"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)">
+        <input type="file" id="fileInput" accept="image/*" multiple onchange="handleFileChange(event)">
+        <div class="upload-icon">📤</div>
+        <h3>Klik atau seret file ke sini</h3>
+        <p>Format JPG PNG WEBP Maks 5 MB</p>
+      </div>
+    </div>
+  </div>
+ -->
+  <div id="loketSection" style="display:none">
+    <div class="card">
+      <div class="card-title">Pembayaran di Loket</div>
+      <div class="alert alert-warning">
+        <span class="alert-icon">⚠️</span>
+        <div class="alert-content">
+          <strong>Status Menunggu Pembayaran</strong>
+          Anda harus membayar langsung di loket maksimal 1 jam sebelum berangkat
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="konfirmasiLoket()">Selesaikan Pesanan</button>
+    </div>
+  </div>
+
+  <div class="btn-row" id="btnRow2">
+    <button class="btn" onclick="gotoStep(1)">Kembali</button>
+  </div>
+</div>
+  <!-- ============================================================
+       PAGE 3 — OCR PROCESS & MANUAL CHECK
+  ============================================================ -->
+  <div class="page" id="page3">
+    <!-- Image Preview Card -->
+    <div class="card" id="imgPreviewWrap" style="display:none; padding:12px;">
+      <div class="card-title" style="margin-bottom:8px; padding-bottom:6px;">🖼️ Gambar Diproses</div>
+      <div class="img-preview-wrap">
+        <img id="imgPreview" alt="Bukti pembayaran">
+      </div>
+      <div class="img-preview-info">
+        <span id="imgName">—</span>
+        <span id="imgSize">—</span>
+      </div>
+    </div>
+
+    <!-- OCR Progress -->
+    <div class="card ocr-progress-card" id="ocrProgressCard">
+      <div class="card-title">⚙️ Proses OCR — Langkah demi Langkah</div>
+      <div class="ocr-log" id="ocrLog"></div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progFill"></div>
+      </div>
+      <div class="progress-label">
+        <span id="progStep">Memulai...</span>
+        <span id="progPct">0%</span>
+      </div>
+    </div>
+
+    <!-- OCR Result -->
+    <div class="card ocr-result-card" id="ocrResultCard">
+      <div class="card-title">🔍 Hasil Ekstraksi OCR</div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;" id="docTypeBadges"></div>
+
+      <div id="ocrResultRows"></div>
+
+      <div class="confidence-block">
+        <div class="conf-header">
+          <span class="conf-label">Kelengkapan Data</span>
+          <span class="conf-score" id="confScore">0%</span>
+        </div>
+        <div class="conf-bar-wrap">
+          <div class="conf-bar-fill" id="confFill"></div>
+        </div>
+        <div class="conf-threshold">
+          <span>0%</span>
+          <span>▲ Threshold minimum: 80%</span>
+          <span>100%</span>
+        </div>
+      </div>
+
+      <div id="validasiBlock"></div>
+
+      <!-- JSON Viewer Section -->
+      <div style="margin-top: 20px; padding-top: 16px; border-top: 1px dashed #cbd5e1;">
+        <button class="btn btn-outline" style="width:100%; border:1px solid #cbd5e1; color:#475569; margin-bottom:8px;" onclick="toggleJsonView()">
+          📄 Tampilkan JSON Mentah (Developer)
+        </button>
+        <div id="jsonViewerBlock" style="display: none;">
+          <pre id="jsonPreview" style="background:#0f172a; color:#38bdf8; padding:12px; border-radius:8px; font-size:12px; overflow-x:auto; margin-bottom:12px; font-family: monospace;"></pre>
+          <button class="btn btn-primary" onclick="downloadJson()" style="width:100%; background:#0284c7; border-color:#0284c7;">
+            ⬇️ Download File JSON
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual Check Notification -->
+    <div class="card manual-notif" id="manualNotifCard" style="display:none">
+      <div class="notif-header">
+        <span class="notif-icon">🔔</span>
+        <h2>Perlu Pengecekan Manual</h2>
+        <p>Akurasi/Kelengkapan OCR di bawah threshold.</p>
+      </div>
+
+      <div class="alert alert-danger">
+        <span class="alert-icon">⚠️</span>
+        <div class="alert-content">
+          <strong>Validasi Otomatis Gagal</strong>
+          <span id="manualAlasanText">Akurasi OCR tidak memenuhi syarat minimum.</span>
+        </div>
+      </div>
+
+      <div class="card" style="background:#f9fafb;border:none;padding:14px;margin-top:0">
+        <div class="card-title" style="border:none;padding-bottom:6px">Detail Hasil OCR</div>
+        <div id="manualDetailRows"></div>
+      </div>
+
+      <div class="alert alert-warning" style="margin-top:12px">
+        <span class="alert-icon">📨</span>
+        <div class="alert-content">
+          <strong>Notifikasi Terkirim ke:</strong>
+          <div id="notifTarget" style="margin-top:4px;font-size:13px"></div>
+        </div>
+      </div>
+
+      <div style="text-align:center;margin:14px 0 6px;font-size:13px;color:var(--text-muted)">
+        Nomor Tiket Sementara: <strong id="tmpTicketNo" style="font-family:monospace;color:var(--text)"></strong>
+      </div>
+      <div style="text-align:center;font-size:12px;color:var(--text-light)">
+        Tim kami akan memverifikasi dalam <strong>15 menit</strong> jam kerja
+      </div>
+    </div>
+
+    <div class="btn-row" id="btnRow3" style="display:none; margin-top:0">
+      <button class="btn" onclick="gotoStep(2)">&larr; Upload Ulang</button>
+      <button class="btn btn-success" id="btnKonfirmasi" style="display:none" onclick="konfirmasiPembayaran()">
+        ✓ Konfirmasi Pembayaran
+      </button>
+      <button class="btn btn-primary" id="btnLihatStatus" style="display:none" onclick="gotoStep(4)">Lihat Status &rarr;</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       PAGE 4 — E-TICKET
+  ============================================================ -->
+  <div class="page" id="page4">
+    <div class="eticket" id="eticket" style="display:block">
+      <div class="ticket-main">
+        <div class="ticket-top">
+          <div>
+            <div class="ticket-airline">✈ TRAVELGO E-TICKET</div>
+            <div class="ticket-rute" id="tickRute">BDJ → SUB</div>
+            <div class="ticket-date" id="tickDate">—</div>
+          </div>
+          <div class="ticket-confirmed">✓ TERKONFIRMASI</div>
+        </div>
+        <div class="ticket-divider"></div>
+        <div class="ticket-grid">
+          <div>
+            <div class="ticket-field-label">PENUMPANG</div>
+            <div class="ticket-field-val" id="tickNama">—</div>
+          </div>
+          <div>
+            <div class="ticket-field-label">NO. KURSI</div>
+            <div class="ticket-field-val" id="tickKursi">—</div>
+          </div>
+          <div>
+            <div class="ticket-field-label">KELAS</div>
+            <div class="ticket-field-val" id="tickKelas">—</div>
+          </div>
+          <div>
+            <div class="ticket-field-label">TOTAL BAYAR</div>
+            <div class="ticket-field-val" id="tickTotal">—</div>
+          </div>
+        </div>
+        <div class="ticket-code">
+          KODE BOOKING: <span id="tickKode">—</span>
+        </div>
+      </div>
+
+      <div class="alert alert-success">
+        <span class="alert-icon">🎉</span>
+        <div class="alert-content">
+          <strong>Tiket berhasil diterbitkan!</strong>
+          E-tiket telah dikirim ke email dan WhatsApp Anda.
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0">
+        <div class="card-title">📊 Ringkasan Verifikasi OCR</div>
+        <div id="ocrSummaryFinal"></div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="resetApp()">
+      ＋ Pesan Tiket Baru
+    </button>
+  </div>
+
+</div><!-- /container -->
+
+
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/ocr.js"></script>
+</body>
+</html>

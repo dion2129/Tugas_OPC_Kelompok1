@@ -151,70 +151,54 @@ function handleFileChange(e) {
   }
 }
 
-function classifyAndExtract(text) {
-  const t = text.toUpperCase();
-  const tOri = text;
-
-  let nominal = "";
-  const nominalPatterns = [/Rp\s*([\d.,]+)/gi, /RP\s*([\d.,]+)/gi, /IDR\s*([\d.,]+)/gi, /TOTAL[^\d]*([\d.,]+)/gi];
-  for (const pat of nominalPatterns) {
-    const m = tOri.match(pat);
-    if (m && m.length > 0) {
-      const candidates = [];
-      for (const match of m) {
-        const cleaned = match.replace(/[^\d]/g, "");
-        if (cleaned.length >= 3) candidates.push(parseInt(cleaned));
-      }
-      if (candidates.length) {
-        const valid = candidates.filter(v => v > 10000 && v < 100000000);
-        if (valid.length) { nominal = "Rp " + Math.max(...valid).toLocaleString("id-ID"); break; }
-      }
-    }
+function classifyAndExtract(rawText) {
+  const hasil = {
+    docType: "Bukti Pembayaran",
+    nominal: "",
+    rrn: "",
+    tanggal: "",
+    aplikasiAsal: "",
+    pengirim: "",
+    aplikasiTujuan: "",
+    penerima: "",
+    confidence: 0
   }
 
-  let rrn = "";
-  const rrnPat = tOri.match(/(?:RRN|Ref|Referensi|ID Transaksi|Trx ID|No\. Transaksi)[^\d]*([\dA-Z]{8,25})/i);
-  if (rrnPat) rrn = rrnPat[1];
-
-  let tanggal = "";
-  const tglPatterns = [/\d{1,2}\s*(Jan|Feb|Mar|Apr|Mei|Jun|Jul|Agu|Sep|Okt|Nov|Des)[a-z]*\s*\d{4}/gi, /\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4}/g];
-  for (const pat of tglPatterns) {
-    const m = tOri.match(pat);
-    if (m && m[0]) { tanggal = m[0].trim(); break; }
+  const cariNominal = rawText.match(/Rp\s?[\d.,]+/)
+  if (cariNominal) {
+    hasil.nominal = cariNominal[0]
   }
 
-  let aplikasiAsal = "(tidak terbaca)";
-  if (t.includes("BRI")) aplikasiAsal = "Bank BRI";
-  else if (t.includes("BCA")) aplikasiAsal = "Bank BCA";
-  else if (t.includes("MANDIRI")) aplikasiAsal = "Bank Mandiri";
-  else if (t.includes("BNI")) aplikasiAsal = "Bank BNI";
+  const cariTanggal = rawText.match(/\d{1,2}\s[a-zA-Z]+\s\d{4}|\d{2}\/\d{2}\/\d{4}/)
+  if (cariTanggal) {
+    hasil.tanggal = cariTanggal[0]
+  }
 
-  let pengirim = "";
-  const pengirimPat = tOri.match(/(?:Pengirim|Dari|Sumber Dana|Nama Pengirim)[:\s\n]+([A-Za-z\s]+)/i);
-  if (pengirimPat) pengirim = pengirimPat[1].trim().substring(0, 40).replace(/BANK/i, "").trim();
+  const cariRrn = rawText.match(/\b\d{12,}\b/)
+  if (cariRrn) {
+    hasil.rrn = cariRrn[0]
+  }
 
-  let aplikasiTujuan = "(tidak terbaca)";
-  if (t.includes("DANA")) aplikasiTujuan = "DANA";
-  else if (t.includes("GOPAY")) aplikasiTujuan = "GoPay";
-  else if (t.includes("OVO")) aplikasiTujuan = "OVO";
-  else if (t.includes("SHOPEE")) aplikasiTujuan = "ShopeePay";
+  const teksKecil = rawText.toLowerCase()
 
-  let penerima = "";
-  const mercPat = tOri.match(/(?:Merchant|Penerima|Tujuan|Pembayaran ke)[:\s\n]+([A-Za-z\s]+)/i);
-  if (mercPat) penerima = mercPat[1].trim().substring(0, 40).replace(/BANK/i, "").trim();
+  if (teksKecil.includes("dana")) hasil.aplikasiTujuan = "DANA"
+  else if (teksKecil.includes("gopay")) hasil.aplikasiTujuan = "GoPay"
+  else if (teksKecil.includes("ovo")) hasil.aplikasiTujuan = "OVO"
+  else if (teksKecil.includes("shopeepay")) hasil.aplikasiTujuan = "ShopeePay"
 
-  let foundFields = 0;
-  if (nominal) foundFields++;
-  if (rrn) foundFields++;
-  if (tanggal) foundFields++;
-  if (aplikasiAsal !== "(tidak terbaca)") foundFields++;
-  if (pengirim) foundFields++;
-  if (aplikasiTujuan !== "(tidak terbaca)") foundFields++;
-  if (penerima) foundFields++;
+  if (teksKecil.includes("mandiri")) hasil.aplikasiAsal = "Bank Mandiri"
+  else if (teksKecil.includes("bca")) hasil.aplikasiAsal = "Bank BCA"
+  else if (teksKecil.includes("bni")) hasil.aplikasiAsal = "Bank BNI"
+  else if (teksKecil.includes("bri")) hasil.aplikasiAsal = "Bank BRI"
 
-  const confidence = Math.round((foundFields / 7) * 100);
+  let skorBaru = 0
+  if (hasil.nominal) skorBaru += 40
+  if (hasil.aplikasiTujuan) skorBaru += 30
+  if (hasil.tanggal || hasil.rrn) skorBaru += 30
+  
+  hasil.confidence = skorBaru
 
-  return { docType: "Bukti Pembayaran", nominal, rrn, tanggal, aplikasiAsal, pengirim, aplikasiTujuan, penerima, confidence };
+  return hasil
 }
 
 function renderOCRResult(r) {
